@@ -752,8 +752,8 @@ async function iniciarSesion() {
     const json = await res.json();
 
     if (json.ok) {
-      sessionStorage.setItem("tt_user",  json.user);
-      sessionStorage.setItem("tt_token", json.token);
+      sessionStorage.setItem("tt_user", json.user);
+      sessionStorage.setItem("tt_hash", hash);
       mostrarApp(json.user);
       cargarDesdeSheets();
     } else {
@@ -778,7 +778,7 @@ function mostrarApp(user) {
 
 function cerrarSesion() {
   sessionStorage.removeItem("tt_user");
-  sessionStorage.removeItem("tt_token");
+  sessionStorage.removeItem("tt_hash");
   document.getElementById("appScreen").style.display   = "none";
   document.getElementById("loginScreen").style.display = "flex";
   document.getElementById("loginUser").value = "";
@@ -789,9 +789,9 @@ function cerrarSesion() {
 
 // Restaurar sesión activa al recargar la página
 window.addEventListener("DOMContentLoaded", () => {
-  const user  = sessionStorage.getItem("tt_user");
-  const token = sessionStorage.getItem("tt_token");
-  if (user && token) {
+  const user = sessionStorage.getItem("tt_user");
+  const hash = sessionStorage.getItem("tt_hash");
+  if (user && hash) {
     mostrarApp(user);
     cargarDesdeSheets();
   }
@@ -825,10 +825,10 @@ function mostrarAlerta(mensaje, tipo = "info") {
 // CARGA DESDE GOOGLE SHEETS (VÍA APPS SCRIPT)
 // =========================
 async function cargarDesdeSheets() {
-  const user  = sessionStorage.getItem("tt_user");
-  const token = sessionStorage.getItem("tt_token");
+  const user = sessionStorage.getItem("tt_user");
+  const hash = sessionStorage.getItem("tt_hash");
 
-  if (!user || !token) {
+  if (!user || !hash) {
     cerrarSesion();
     return;
   }
@@ -836,7 +836,7 @@ async function cargarDesdeSheets() {
   try {
     mostrarAlerta("Cargando datos...", "info");
 
-    const params = `user=${encodeURIComponent(user)}&token=${encodeURIComponent(token)}`;
+    const params = `user=${encodeURIComponent(user)}&hash=${hash}`;
 
     const [resPersonal, resVehiculos] = await Promise.all([
       fetch(`${APPS_SCRIPT_URL}?accion=personal&${params}`),
@@ -848,15 +848,8 @@ async function cargarDesdeSheets() {
       resVehiculos.json()
     ]);
 
-    // Sesión expirada
-    if (jsonPersonal.error && jsonPersonal.error.includes("Sesión")) {
-      mostrarAlerta("Tu sesión expiró. Vuelve a iniciar sesión.", "error");
-      cerrarSesion();
-      return;
-    }
-
-    if (jsonPersonal.error)  throw new Error("Personal: "   + jsonPersonal.error);
-    if (jsonVehiculos.error) throw new Error("Vehículos: "  + jsonVehiculos.error);
+    if (jsonPersonal.error)  throw new Error(jsonPersonal.error);
+    if (jsonVehiculos.error) throw new Error(jsonVehiculos.error);
 
     dataPersonal  = jsonPersonal.data;
     dataVehiculos = jsonVehiculos.data;
